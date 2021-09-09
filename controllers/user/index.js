@@ -1,89 +1,91 @@
-const mongoose = require('mongoose')
-const User = mongoose.model('User');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken')
-
-const uniqueEmail = async (email) => {
-    const emailExist = await User.findOne({ email })
-    if (emailExist) return true
-    return false
+const userRegister = async (req, res) => {
+    const { userName, email, password } = req.body;
+    const emailRegex = /^(([^<>()[\]\\.,;:\s@\"]+(\.[^<>()[\]\\.,;:\s@\"]+)*)|(\".+\"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+    const passRegex = /^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#\$%\^&\*]).{6,}$/;
+    if (!userName || !email || !password) {
+        return messageComponent.emptyField(res)
+    }
+    if (!emailRegex.test(email)) {
+        return messageComponent.emailNotValid(res)
+    }
+    if (!passRegex.test(password)) {
+        return messageComponent.passwordNotValid(res)
+    }
+    const emailIsNotUnique = await userComponent.findUserByEmail(email)
+    if (emailIsNotUnique) {
+        return messageComponent.emailExist(res)
+    }
+    const newPassword = await utilComponent.hashPassword(password)
+    const user = await userComponent.createUser(userName, email, newPassword)
+    return messageComponent.showUser(res, user)
 }
-const findEmail = async (email) => {
-    const emailExist = await User.findOne({ email })
-    return emailExist
+const userLogin = async (req, res) => {
+    const { email, password } = req.body;
+    if (!email || !password) {
+        return messageComponent.emptyField(res)
+    }
+    const user = await userComponent.findUserByEmail(email)
+    if (!user) {
+        return messageComponent.userNotExist(res)
+    }
+    const doMatch = await utilComponent.comparePassword(password, user.password)
+    if (!doMatch) {
+        return messageComponent.wrongPassword(res)
+    }
+    const token = await userComponent.createUserToken(user)
+    return messageComponent.createToken(res, token)
 }
-const findUser = async (_id) => {
-    const user=await User.findOne({ _id })
-    return user
+const userProfile = async (req, res) => {
+    const { _id } = req.user
+    const user = await userComponent.findUserById(_id)
+    return messageComponent.showUser(res, user)
 }
-const createUser = async (firstName, lastName, userName, email, password, is2faEnable) => {
-    const newPassword = await bcrypt.hash(password, 10)
-    const user = await User({
-        password: newPassword,
-        firstName,
-        lastName,
-        userName,
-        email,
-        is2faEnable
-    })
-    await user.save()
-    return user
+const editProfile = async (req, res) => {
+    const { _id } = req.user
+    const { userName, email } = req.body;
+    const regex = /^(([^<>()[\]\\.,;:\s@\"]+(\.[^<>()[\]\\.,;:\s@\"]+)*)|(\".+\"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+    if (!userName) {
+        return messageComponent.emptyField(res)
+    }
+    if (!email || !regex.test(email)) {
+        return messageComponent.emailNotValid(res)
+    }
+    const emailIsNotUnique = await userComponent.findUserByEmail(email)
+    if (emailIsNotUnique) {
+        return messageComponent.emailExist(res)
+    }
+    await userComponent.updateUser(_id, userName, email)
+    const user = await userComponent.findUserById(_id)
+    return messageComponent.showUser(res, user)
 }
-const updateUser = async (firstName, lastName, userName, email, is2faEnable,id) => {
-    // const user = await User.updateOne({ _id:id }, {
-    //     firstName,
-    //     lastName,
-    //     userName,
-    //     email,
-    //     is2faEnable
-    // })
-    const user=await User.findOne({_id:id})
-    user.firstName=firstName
-    user.lastName=lastName
-    user.userName=userName
-    user.email=email
-    user.is2faEnable=is2faEnable
-    await user.save()
-    return user
+const getProducts = async (req, res) => {
+    const products = await utilComponent.findProducts()
+    return messageComponent.showProducts(res, products)
 }
-const passwordCheck = async (password, userPassword) => {
-    const match = await bcrypt.compare(password, userPassword)
-    if (match) return true
-    return false
+const getProduct = async (req, res) => {
+    const { id } = req.params
+    const product = await utilComponent.findProduct(id)
+    if (!product) messageComponent.productNotExist(res)
+    return messageComponent.showProduct(res, product)
 }
-const createMainToken = async (user,res) => {
-    const token = await jwt.sign({ _id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' })
-    res.header('auth-token', token).send(token)
+const orderProduct = async (req, res) => {
+    const { _id } = req.user
+    const user = await userComponent.findUserById(_id)
+    if (!user) return messageComponent.userNotExist(res)
+    const { productId, pay, quantity } = req.body
+    const product = await utilComponent.findProduct(productId)
+    if (!product) return messageComponent.productNotExist(res)
+    if (product.price !== parseInt(pay)) return messageComponent.productPriceChange(res)
+    if (product.count < quantity) return messageComponent.productNotEnough(res)
+    const order = await utilComponent.createOrder(pay, quantity, user, product)
+    return messageComponent.showOrder(res, order)
 }
-const createOtpToken=async(user,res)=>{
-    const newOtpPassword = Math.floor(100000 + Math.random() * 900000)
-        user.otpPassword = newOtpPassword
-        await user.save()
-        console.log(newOtpPassword);
-        const otpToken = await jwt.sign({ _id: user._id , newOtpPassword }, process.env.OTP_SECRET,{expiresIn: "120s"})
-        res.header('auth-token', otpToken).send(otpToken)
-}
-const findOtpToken=(req)=>{
-    const otpToken = req.headers.authorization.split(" ")[1]
-    return otpToken
-}
-const otpTokenIsMatch=(otpToken,newUser)=>{
-    const verified = jwt.verify(otpToken, process.env.OTP_SECRET)
-    newUser = verified
-    const { _id } = verified
-    console.log(_id);
-    return _id
-}
-
 module.exports = {
-    uniqueEmail,
-    createUser,
-    updateUser,
-    findEmail,
-    findUser,
-    passwordCheck,
-    createMainToken,
-    createOtpToken,
-    findOtpToken,
-    otpTokenIsMatch
+    userRegister,
+    userLogin,
+    userProfile,
+    editProfile,
+    getProducts,
+    getProduct,
+    orderProduct
 }

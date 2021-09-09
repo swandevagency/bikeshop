@@ -19,7 +19,9 @@ const getProducts = async (req, res) => {
     messageComponent.showProducts(res, products)
 }
 const getProduct = async (req, res) => {
-    const product = await utilComponent.findProduct(req, res)
+    const _id = req.params.id
+    const product = await utilComponent.findProduct(_id)
+    if (!product) messageComponent.productNotExist(res)
     messageComponent.showProduct(res, product)
 }
 const addProduct = async (req, res) => {
@@ -34,7 +36,8 @@ const addProduct = async (req, res) => {
     })
 }
 const editProduct = async (req, res) => {
-    const product = await utilComponent.findProduct(req, res)
+    const { id } = req.params
+    const product = await utilComponent.findProduct(id)
     if (!product) messageComponent.productNotExist(res)
     utilComponent.deleteImage(product)
     utilComponent.uploadImage(req, res, async (error) => {
@@ -43,15 +46,16 @@ const editProduct = async (req, res) => {
         } else {
             messageComponent.fileExist(req, res)
         }
-        await utilComponent.updateProduct(req)
-        messageComponent.showUpdateProduct(res, product)
+        const updatedProduct = await utilComponent.updateProduct(id, req)
+        await messageComponent.showUpdateProduct(res, updatedProduct)
     })
 }
 const deleteProduct = async (req, res) => {
-    const product = await utilComponent.findProduct(req, res)
+    const { id } = req.params
+    const product = await utilComponent.findProduct(id)
     if (!product) messageComponent.productNotExist(res)
     utilComponent.deleteImage(product)
-    utilComponent.removeProduct(req)
+    utilComponent.removeProduct(id)
     messageComponent.deleteProductMessage(res)
 }
 module.exports = {

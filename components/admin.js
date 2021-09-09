@@ -8,8 +8,7 @@ const findAdmin = async (userName) => {
     return admin
 }
 const createAdminToken=async(admin)=>{
-    console.log(admin);
-    const token = jwt.sign({ _id: admin._id }, key.adminToken)
+    const token = jwt.sign({ _id: admin._id }, key.adminToken,{expiresIn:'7d'})
     return token
 }
 
