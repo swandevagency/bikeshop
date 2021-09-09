@@ -1,8 +1,7 @@
-const express = require('express')
 const mongoose = require('mongoose')
-const router = express.Router()
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken')
+const key = require('../../config/keys')
 
 router.put('/', async (req, res) => {
     const { email, password } = req.body;
@@ -23,7 +22,7 @@ router.put('/', async (req, res) => {
         res.status(400).send('password or email mismatch.');
         return;
     }
-        const token = await jwt.sign({ _id: user._id }, process.env.JWT_USER_SECRET||'user-token')
+        const token = await jwt.sign({ _id: user._id }, key.usertoken)
         res.header('auth-token', token).send(token)
 })
 

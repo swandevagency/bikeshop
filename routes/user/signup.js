@@ -6,22 +6,27 @@ const bcrypt = require('bcryptjs');
 
 router.post('/', async (req, res) => {
     const { userName, email, password } = req.body;
-    const regex = /^(([^<>()[\]\\.,;:\s@\"]+(\.[^<>()[\]\\.,;:\s@\"]+)*)|(\".+\"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
-    if (!userName || !password ) {
-        console.log('user entry is not correct!');
-        res.status(400).send('some fields are empty.');
+    const emailRegex = /^(([^<>()[\]\\.,;:\s@\"]+(\.[^<>()[\]\\.,;:\s@\"]+)*)|(\".+\"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+    const passRegex= /^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#\$%\^&\*]).{6,}$/;
+    if (!userName ||!email || !password) {
+        res.status(400).send('please enter all fields.');
         return;
     }
-    if (!email || !regex.test(email)){
+    if (!emailRegex.test(email)){
         res.status(400).send({
-            message: "Please provide a valid email"
+            message: "Please provide a valid email."
+        });
+        return;
+    }
+    if(!passRegex.test(password)){
+        res.status(400).send({
+            message: `The password string must contain at least 1 lowercase ,1 uppercase ,1 numeric and 1 special character and six characters or longer.`
         });
         return;
     }
     const User = mongoose.model('User');
     const emailIsNotUnique = await User.findOne({ email })
     if (emailIsNotUnique) {
-        console.log('email exist!');
         res.status(400).send('email already existed');
         return;
     }

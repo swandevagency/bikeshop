@@ -10,8 +10,7 @@ const adminSchema = new mongoose.Schema({
         required: true
     },
     phone: {
-        type: String,
-        default:'0912'
+        type: Number
     }
 })
 module.exports = adminSchema
